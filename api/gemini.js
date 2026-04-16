@@ -25,8 +25,19 @@ export default async function handler(req, res) {
 4. 语气：严谨、温暖，使用“或许可以尝试”、“另一种视角是”等非绝对化用语。
 5. 禁令：严禁使用玄学词汇；严禁给出确定的决策指令；不加结束问句。
 
-返回JSON格式：{ "answer": "回答内容", "suggestions": ["建议1", "建议2", "建议3"] }`;
+返回JSON格式：
+{
+  "answer": "回答内容（约80字）",
+  "questions": [
+    "用户可能遇到的卡顿感问题1（第一人称问句）",
+    "用户可能遇到的卡顿感问题2（第一人称问句）",
+    "用户可能遇到的卡顿感问题3（第一人称问句）"
+  ]
+}
 
+注意："questions" 字段请根据当前对话主题，生成三个具体的、用户可能正在经历的内心困扰或卡顿点，每个都是开放式问句，不要给出建议。
+例如：“为什么我总是忍不住讨好别人？”“如何面对做错事后的自责？”“我该坚持自己的原则还是妥协？”`;
+    
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     try {
