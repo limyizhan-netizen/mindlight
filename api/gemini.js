@@ -1,20 +1,18 @@
-// api/gemini.js
 export default async function handler(req, res) {
-    // 只允许 POST 请求
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { lifeNum, question } = req.body;
+    const { lifeNum, question } = req.body || {};
 
     if (!question) {
         return res.status(400).json({ error: 'Missing question' });
     }
 
-    // 从环境变量读取 Gemini API Key（在 Vercel 后台配置）
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        return res.status(500).json({ error: 'Server configuration error' });
+        console.error('GEMINI_API_KEY is not set');
+        return res.status(500).json({ error: 'Server configuration error: missing API key' });
     }
 
     const prompt = `你是心光AI心理认知教练。用户类型编号：${lifeNum}。
@@ -29,8 +27,10 @@ export default async function handler(req, res) {
 
 返回JSON格式：{ "answer": "回答内容", "suggestions": ["建议1", "建议2", "建议3"] }`;
 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -39,16 +39,46 @@ export default async function handler(req, res) {
             })
         });
 
-        const data = await response.json();
-        if (!data.candidates || !data.candidates[0]) {
-            throw new Error('Invalid response from Gemini');
+        // 获取原始响应文本（无论是否成功）
+        const rawText = await response.text();
+        console.log('Gemini response status:', response.status);
+        console.log('Gemini response body:', rawText);
+
+        if (!response.ok) {
+            // 返回具体的 Gemini 错误信息
+            return res.status(response.status).json({ 
+                error: 'Gemini API error', 
+                details: rawText 
+            });
         }
 
-        const text = data.candidates[0].content.parts[0].text;
-        const parsed = JSON.parse(text);
+        // 尝试解析 JSON
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (e) {
+            console.error('Failed to parse Gemini response as JSON:', rawText);
+            return res.status(500).json({ error: 'Invalid JSON from Gemini', raw: rawText });
+        }
+
+        if (!data.candidates || !data.candidates[0]) {
+            console.error('Gemini response missing candidates:', data);
+            return res.status(500).json({ error: 'Gemini returned no candidates', fullResponse: data });
+        }
+
+        const textContent = data.candidates[0].content.parts[0].text;
+        // 尝试解析 AI 返回的 JSON 内容
+        let parsed;
+        try {
+            parsed = JSON.parse(textContent);
+        } catch (e) {
+            console.error('AI response is not valid JSON:', textContent);
+            return res.status(500).json({ error: 'AI response format error', raw: textContent });
+        }
+
         res.status(200).json(parsed);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'AI service temporarily unavailable' });
+        console.error('Handler error:', error);
+        res.status(500).json({ error: 'Internal server error: ' + error.message });
     }
 }
