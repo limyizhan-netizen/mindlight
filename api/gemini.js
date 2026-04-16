@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+    // 仅允许 POST 请求
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -15,6 +16,14 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Server configuration error: missing API key' });
     }
 
+    // 模型优先级列表（按顺序尝试）
+    const modelList = [
+        'gemini-2.5-pro',      // 最强大，优先尝试
+        'gemini-2.5-flash',    // 性价比高
+        'gemini-2.0-flash'     // 快速备选
+    ];
+
+    // 公共 prompt
     const prompt = `你是心光AI心理认知教练。用户类型编号：${lifeNum}。
 用户问题/难题：${question}。
 
@@ -33,63 +42,71 @@ export default async function handler(req, res) {
     "用户可能遇到的卡顿感问题2（第一人称问句）",
     "用户可能遇到的卡顿感问题3（第一人称问句）"
   ]
-}
+}`;
 
-注意："questions" 字段请根据当前对话主题，生成三个具体的、用户可能正在经历的内心困扰或卡顿点，每个都是开放式问句，不要给出建议。
-例如：“为什么我总是忍不住讨好别人？”“如何面对做错事后的自责？”“我该坚持自己的原则还是妥协？”`;
-    
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // 遍历模型尝试
+    for (let i = 0; i < modelList.length; i++) {
+        const model = modelList[i];
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" }
-            })
-        });
+        try {
+            console.log(`[Attempt ${i+1}] Trying model: ${model}`);
 
-        // 获取原始响应文本（无论是否成功）
-        const rawText = await response.text();
-        console.log('Gemini response status:', response.status);
-        console.log('Gemini response body:', rawText);
-
-        if (!response.ok) {
-            // 返回具体的 Gemini 错误信息
-            return res.status(response.status).json({ 
-                error: 'Gemini API error', 
-                details: rawText 
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                })
             });
-        }
 
-        // 尝试解析 JSON
-        let data;
-        try {
-            data = JSON.parse(rawText);
-        } catch (e) {
-            console.error('Failed to parse Gemini response as JSON:', rawText);
-            return res.status(500).json({ error: 'Invalid JSON from Gemini', raw: rawText });
-        }
+            const rawText = await response.text();
+            console.log(`[${model}] HTTP status: ${response.status}`);
 
-        if (!data.candidates || !data.candidates[0]) {
-            console.error('Gemini response missing candidates:', data);
-            return res.status(500).json({ error: 'Gemini returned no candidates', fullResponse: data });
-        }
+            // 如果状态码不是 2xx，记录错误并继续下一个模型
+            if (!response.ok) {
+                console.warn(`[${model}] failed with status ${response.status}: ${rawText.substring(0, 200)}`);
+                continue; // 尝试下一个模型
+            }
 
-        const textContent = data.candidates[0].content.parts[0].text;
-        // 尝试解析 AI 返回的 JSON 内容
-        let parsed;
-        try {
-            parsed = JSON.parse(textContent);
-        } catch (e) {
-            console.error('AI response is not valid JSON:', textContent);
-            return res.status(500).json({ error: 'AI response format error', raw: textContent });
-        }
+            // 解析 JSON
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (e) {
+                console.error(`[${model}] JSON parse error:`, rawText.substring(0, 200));
+                continue;
+            }
 
-        res.status(200).json(parsed);
-    } catch (error) {
-        console.error('Handler error:', error);
-        res.status(500).json({ error: 'Internal server error: ' + error.message });
+            // 检查 Gemini 返回结构
+            if (!data.candidates || !data.candidates[0]) {
+                console.error(`[${model}] No candidates in response:`, JSON.stringify(data).substring(0, 200));
+                continue;
+            }
+
+            const textContent = data.candidates[0].content.parts[0].text;
+            let parsed;
+            try {
+                parsed = JSON.parse(textContent);
+            } catch (e) {
+                console.error(`[${model}] AI response not valid JSON:`, textContent.substring(0, 200));
+                continue;
+            }
+
+            // 成功：返回结果
+            console.log(`[${model}] Success!`);
+            return res.status(200).json(parsed);
+        } catch (error) {
+            console.error(`[${model}] Request error:`, error.message);
+            continue; // 网络错误等，继续尝试下一个模型
+        }
     }
+
+    // 所有模型都失败
+    console.error('All models exhausted. Returning 503.');
+    return res.status(503).json({ 
+        error: 'AI service temporarily unavailable. Please try again later.',
+        details: 'All attempted models failed.'
+    });
 }
