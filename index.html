@@ -210,8 +210,8 @@
         document.getElementById('poster-title').innerText = data.title;
         document.getElementById('poster-desc').innerText = data.behavior;
 
-        updateSuggestions(problemSuggestions);
-        updateQuotaDisplay();
+    updateSuggestions(problemSuggestions)
+    updateQuotaDisplay();
     }
 
     function updateQuotaDisplay() {
@@ -241,8 +241,8 @@
             if (data.error) throw new Error(data.error);
             loading.remove();
             addBubble(data.answer, 'ai');
-            updateSuggestions(data.suggestions);
-            if (remainingQuota === 0) setTimeout(() => document.getElementById('pay-modal').classList.remove('hidden'), 2000);
+            updateSuggestions(data.questions || data.suggestions || problemSuggestions)
+    if (remainingQuota === 0) setTimeout(() => document.getElementById('pay-modal').classList.remove('hidden'), 2000);
         } catch (e) {
             loading.remove();
             addBubble("抱歉，我的分析模块遇到了一点波动。请稍后重试。", 'ai');
