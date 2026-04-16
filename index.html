@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心光 MindLight - AI 心理认知教练</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;700&display=swap');
+        body { font-family: 'Inter', 'Noto Sans SC', sans-serif; background: #f8fafc; color: #1e293b; -webkit-tap-highlight-color: transparent; }
+        .chat-bubble { max-width: 85%; border-radius: 1.25rem; }
+        .loading-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .btn-premium { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); transition: all 0.3s ease; }
+        
+        /* Poster Template */
+        #poster-template {
+            position: absolute; left: -9999px; width: 375px; height: 667px;
+            background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+            color: white; padding: 40px; display: flex; flex-direction: column; justify-content: space-between;
+        }
+    </style>
+</head>
+<body class="bg-indigo-50/20">
+
+    <!-- 隐藏的海报 HTML 模版 -->
+    <div id="poster-template">
+        <div>
+            <div style="font-size: 10px; font-weight: 900; letter-spacing: 4px; opacity: 0.6; text-transform: uppercase;">MINDLIGHT COGNITIVE</div>
+            <div style="height: 1px; width: 20px; background: #6366f1; margin: 20px 0;"></div>
+            <div id="poster-num" style="font-size: 80px; font-weight: 900; line-height: 1; margin-bottom: 10px; color: #6366f1;">0</div>
+            <div id="poster-title" style="font-size: 28px; font-weight: 900; margin-bottom: 10px;">认知类型</div>
+            <div id="poster-desc" style="font-size: 14px; line-height: 1.6; opacity: 0.8; margin-top: 20px; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; border-left: 3px solid #6366f1;"></div>
+        </div>
+        <div>
+            <div style="font-size: 9px; opacity: 0.3; margin-bottom: 20px; line-height: 1.4;">* 免责声明：本分析由 AI 生成，旨在提供个人行为倾向参考，不具有临床医疗价值。</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="width: 50px; height: 50px; background: white; padding: 4px; border-radius: 6px;">
+                    <div style="width: 100%; height: 100%; background: #1e293b; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;">
+                        <div style="background:white"></div><div style="background:white"></div><div style="background:white"></div>
+                        <div style="background:white"></div><div style="background:#1e293b"></div><div style="background:white"></div>
+                        <div style="background:white"></div><div style="background:white"></div><div style="background:white"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 13px; font-weight: bold;">扫码开启认知探索</div>
+                    <div style="font-size: 8px; opacity: 0.4;">你的 AI 心理认知助理</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-md mx-auto min-h-screen bg-white shadow-2xl relative pb-10">
+        <!-- Header -->
+        <div class="p-8 text-center bg-white border-b border-slate-50">
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">心光 <span class="text-indigo-600">AI</span></h1>
+            <p class="text-slate-400 text-[10px] mt-2 font-bold uppercase tracking-[0.2em]">你的心理认知行为助理</p>
+        </div>
+
+        <!-- Setup View -->
+        <div id="setup-view" class="px-8 py-10">
+            <div class="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 shadow-inner">
+                <label class="block text-center text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">输入出生日期</label>
+                <input type="date" id="birthday" class="w-full border-none bg-white rounded-2xl shadow-sm px-6 py-5 text-lg focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold mb-6">
+                <button onclick="initAnalysis()" class="w-full btn-premium text-white py-5 rounded-2xl text-base font-bold shadow-xl shadow-indigo-100">生成认知画像</button>
+            </div>
+            
+            <!-- 启动页免责声明 -->
+            <div class="mt-8 px-6 text-center">
+                <p class="text-[10px] text-slate-300 leading-relaxed font-medium">
+                    <i class="fas fa-shield-alt mr-1"></i> 
+                    <strong>服务须知：</strong>本应用基于行为科学统计模型生成分析。AI 回复仅供自我探索参考，不替代任何形式的专业心理咨询或医疗诊断。
+                </p>
+            </div>
+        </div>
+
+        <!-- Main View -->
+        <div id="main-view" class="hidden px-6 animate-in fade-in duration-500">
+            <!-- 结果简报 -->
+            <div class="py-6 text-center">
+                <div class="inline-flex items-center gap-3 bg-indigo-50/50 px-5 py-2 rounded-full mb-4">
+                    <span id="res-num" class="text-2xl font-black text-indigo-600">0</span>
+                    <span id="res-title" class="text-sm font-bold text-slate-800 tracking-wide">分析中...</span>
+                </div>
+                <p id="res-behavior" class="text-[12px] text-slate-500 leading-relaxed px-6 italic"></p>
+            </div>
+
+            <!-- 对话区 -->
+            <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-6 mb-6">
+                <div id="chat-display" class="space-y-4 mb-4 max-h-80 overflow-y-auto custom-scrollbar pr-2 min-h-[140px]"></div>
+
+                <div id="suggestion-box" class="mb-4">
+                    <p class="text-[10px] font-bold text-indigo-400/60 mb-3 px-2 uppercase tracking-widest">尝试描述你此刻的卡顿感：</p>
+                    <div id="suggestion-list" class="flex flex-col gap-2"></div>
+                </div>
+
+                <div class="flex gap-2 pt-4 border-t border-slate-50 relative">
+                    <input type="text" id="user-input" placeholder="输入你想聊聊的烦恼..." class="flex-1 bg-slate-50 border-none rounded-xl px-4 py-4 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+                    <button onclick="handleSend()" class="bg-indigo-600 text-white w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100"><i class="fas fa-paper-plane"></i></button>
+                    <!-- 常驻微缩提醒 -->
+                    <div class="absolute -bottom-5 left-0 w-full text-center">
+                        <span class="text-[8px] text-slate-300 font-medium">结果由 AI 生成 · 仅供个人参考</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center px-4">
+                <span id="quota-badge" class="text-[9px] font-black text-slate-300 uppercase tracking-widest">剩余额度: 2</span>
+                <button id="share-btn" onclick="downloadPoster()" class="text-indigo-400 text-[10px] font-bold uppercase tracking-widest flex items-center">
+                    <i class="fas fa-magic mr-1"></i> 保存画像领奖励
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 支付弹窗 -->
+    <div id="pay-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
+        <div class="bg-white rounded-[3rem] p-8 w-full max-w-xs text-center shadow-2xl border border-white/20">
+            <h3 class="font-bold text-lg text-slate-800 mb-2">定制方案已生成</h3>
+            <p class="text-[10px] text-slate-400 mb-8 leading-relaxed">教练已根据你的特质准备了 8 条针对性破解建议。解锁后开启深度对话模式。</p>
+            <div onclick="processPayment()" class="cursor-pointer bg-slate-900 text-white rounded-2xl p-6 mb-4 active:scale-95 transition-all">
+                <div class="text-2xl font-black mb-1">RM 9.90</div>
+                <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">开启深度教练服务</div>
+            </div>
+            <p class="text-[8px] text-slate-300 mb-6">确认支付即代表你了解并接受 AI 服务的非医疗局限性</p>
+            <button onclick="closeModal()" class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">先随便看看</button>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full text-[11px] font-medium opacity-0 transition-all z-[100] shadow-2xl"></div>
+
+<script>
+    const apiKey = "";  // 不再使用，保留为空
+    let lifeNum = 0;
+    
+    // ========== 新增：localStorage 配额管理 ==========
+    const QUOTA_KEY = 'mindlight_quota';
+    const LAST_DATE_KEY = 'mindlight_last_date';
+
+    function loadQuota() {
+        const stored = localStorage.getItem(QUOTA_KEY);
+        if (stored !== null) {
+            return parseInt(stored, 10);
+        }
+        return 2; // 默认2次
+    }
+
+    function saveQuota(quota) {
+        localStorage.setItem(QUOTA_KEY, quota);
+    }
+
+    function canClaimDailyReward() {
+        const today = new Date().toISOString().slice(0, 10);
+        const lastClaimDate = localStorage.getItem(LAST_DATE_KEY);
+        return lastClaimDate !== today;
+    }
+
+    function markDailyRewardClaimed() {
+        const today = new Date().toISOString().slice(0, 10);
+        localStorage.setItem(LAST_DATE_KEY, today);
+    }
+
+    // 将剩余配额变量改为从 localStorage 读取
+    let remainingQuota = loadQuota();
+
+    // ========== 原有 profiles 保持不变 ==========
+    const profiles = {
+        1: { title: "自主型 (Autonomous)", behavior: "你倾向于通过自我掌控获得安全感，面对无法左右的情况时会感到焦虑。" },
+        2: { title: "协作型 (Cooperative)", behavior: "你极度看重他人的反馈，这使你具备亲和力，但也容易因此过度消耗自己。" },
+        3: { title: "表达型 (Expressive)", behavior: "你需要通过表达来整理思绪，当沟通受阻或不被理解时，你会感到明显的能量停滞。" },
+        4: { title: "稳定型 (Stable)", behavior: "你依靠规则和秩序来维持平衡，任何计划之外的变动都可能挑战你的心理安全边界。" },
+        5: { title: "探索型 (Exploratory)", behavior: "你天生好奇且多变，最让你痛苦的往往是枯燥的重复和失去选择的自由。" },
+        6: { title: "责任型 (Responsible)", behavior: "你习惯承担起照顾环境的重任，这虽然让你可靠，但也让你难以分清哪些是别人的包袱。" },
+        7: { title: "分析型 (Analytical)", behavior: "你依赖逻辑推导世界，这让你专业且严谨，但也常让你陷入“思考即行动”的错觉。" },
+        8: { title: "掌控型 (Directive)", behavior: "你追求效能与产出，你最大的难题往往源于“无法忍受他人的低效或模糊状态”。" },
+        9: { title: "包容型 (Inclusive)", behavior: "你追求大同与和谐，这让你具备宏观视角，但也让你在需要做利益切割时倍感纠结。" }
+    };
+
+    const problemSuggestions = [
+        "工作压力非常大，但我不知道该怎么拒绝不合理的任务...",
+        "我总是在讨好别人，感觉快要把真实的自己弄丢了...",
+        "现在面临一个大的转折点，我怕选错了会后悔一辈子..."
+    ];
+
+    // ========== 原有的函数定义（只修改了 askAI 和 downloadPoster） ==========
+    function initAnalysis() {
+        const date = document.getElementById('birthday').value;
+        if(!date) return showToast("请选择日期");
+        const digits = date.replace(/-/g, '').split('');
+        let sum = digits.reduce((a, b) => parseInt(a) + parseInt(b), 0);
+        while (sum > 9) sum = sum.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0);
+        lifeNum = sum;
+
+        document.getElementById('setup-view').classList.add('hidden');
+        document.getElementById('main-view').classList.remove('hidden');
+        
+        const data = profiles[lifeNum];
+        document.getElementById('res-num').innerText = lifeNum;
+        document.getElementById('res-title').innerText = data.title;
+        document.getElementById('res-behavior').innerText = `“${data.behavior}”`;
+
+        const welcomeMsg = `你好。作为编号 ${lifeNum} 的${data.title}，我留意到你${data.behavior.split('，')[1]}。很多时候，我们的天赋也是我们的压力来源。比如，你现在的生活中，有没有哪种情况让你觉得特别“卡顿”？可以是工作中的人际消耗，也可以是感情里的某种死循环。如果你愿意，可以点击下方的建议描述，或者直接跟我说。`;
+        addBubble(welcomeMsg, 'ai');
+
+        document.getElementById('poster-num').innerText = lifeNum;
+        document.getElementById('poster-title').innerText = data.title;
+        document.getElementById('poster-desc').innerText = data.behavior;
+
+        updateSuggestions(problemSuggestions);
+        updateQuotaDisplay();
+    }
+
+    function updateQuotaDisplay() {
+        document.getElementById('quota-badge').innerText = `剩余额度: ${remainingQuota}`;
+    }
+
+    async function askAI(question) {
+        if (remainingQuota <= 0) {
+            document.getElementById('pay-modal').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('user-input').value = '';
+        addBubble(question, 'user');
+        const loading = addBubble('正在整理分析建议...', 'ai', true);
+        remainingQuota--;
+        updateQuotaDisplay();
+        saveQuota(remainingQuota);  // 每次消耗后保存
+
+        try {
+            // 调用你自己的后端代理（需要部署 Vercel 函数）
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lifeNum, question })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            loading.remove();
+            addBubble(data.answer, 'ai');
+            updateSuggestions(data.suggestions);
+            if (remainingQuota === 0) setTimeout(() => document.getElementById('pay-modal').classList.remove('hidden'), 2000);
+        } catch (e) {
+            loading.remove();
+            addBubble("抱歉，我的分析模块遇到了一点波动。请稍后重试。", 'ai');
+            // 如果出错，把刚才扣掉的配额还回去
+            remainingQuota++;
+            updateQuotaDisplay();
+            saveQuota(remainingQuota);
+        }
+    }
+
+    function addBubble(text, role, isLoading = false) {
+        const display = document.getElementById('chat-display');
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-300`;
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble px-4 py-3 text-[12px] leading-relaxed shadow-sm ${role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`;
+        if (isLoading) bubble.classList.add('loading-dots');
+        bubble.innerText = text;
+        wrapper.appendChild(bubble);
+        display.appendChild(wrapper);
+        display.scrollTop = display.scrollHeight;
+        return wrapper;
+    }
+
+    function updateSuggestions(questions) {
+        const list = document.getElementById('suggestion-list');
+        list.innerHTML = '';
+        questions.forEach(q => {
+            const btn = document.createElement('button');
+            btn.className = "text-left bg-slate-50/60 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 text-[10px] px-4 py-3 rounded-2xl transition-all border border-slate-100/50 flex items-start gap-2 group";
+            btn.innerHTML = `<span class="opacity-20 mt-1 group-hover:opacity-100"><i class="fas fa-comment-dots"></i></span> <span class="flex-1">${q}</span>`;
+            btn.onclick = () => askAI(q);
+            list.appendChild(btn);
+        });
+    }
+
+    function handleSend() {
+        const val = document.getElementById('user-input').value.trim();
+        if (val) askAI(val);
+    }
+
+    async function downloadPoster() {
+        if (!canClaimDailyReward()) {
+            showToast("你今天已经领取过奖励啦，明天再来吧～");
+            return;
+        }
+        const btn = document.getElementById('share-btn');
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> 生成中...`;
+        try {
+            const canvas = await html2canvas(document.getElementById('poster-template'), { scale: 2 });
+            const link = document.createElement('a');
+            link.download = `MindLight_Report.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            
+            remainingQuota += 1;
+            saveQuota(remainingQuota);
+            updateQuotaDisplay();
+            markDailyRewardClaimed();
+            
+            btn.onclick = null;
+            btn.className = "text-slate-300 text-[10px] font-bold uppercase tracking-widest flex items-center";
+            btn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> 今日已领取`;
+            showToast("✅ 已保存。额度已加 1，明天再来领～");
+        } catch (e) {
+            showToast("保存失败，请重试");
+            btn.innerHTML = `<i class="fas fa-magic mr-1"></i> 保存画像领奖励`;
+        }
+    }
+
+    function processPayment() {
+        showToast("正在建立安全支付连接...");
+        setTimeout(() => { 
+            remainingQuota += 8; 
+            saveQuota(remainingQuota);
+            updateQuotaDisplay(); 
+            closeModal(); 
+            showToast("✅ 教练包已解锁。"); 
+        }, 1500);
+    }
+
+    function closeModal() { 
+        document.getElementById('pay-modal').classList.add('hidden'); 
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg; 
+        t.style.opacity = "1";
+        setTimeout(() => t.style.opacity = "0", 3000);
+    }
+
+    // ========== 新增：页面加载时同步配额 & 更新分享按钮状态 ==========
+    function updateShareButtonState() {
+        const btn = document.getElementById('share-btn');
+        if (!canClaimDailyReward()) {
+            btn.onclick = null;
+            btn.className = "text-slate-300 text-[10px] font-bold uppercase tracking-widest flex items-center";
+            btn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> 今日已领取`;
+        } else {
+            btn.onclick = downloadPoster;
+            btn.className = "text-indigo-400 text-[10px] font-bold uppercase tracking-widest flex items-center";
+            btn.innerHTML = `<i class="fas fa-magic mr-1"></i> 保存画像领奖励`;
+        }
+    }
+
+    // 页面加载完成后执行
+    window.addEventListener('DOMContentLoaded', () => {
+        // 同步配额显示
+        remainingQuota = loadQuota();
+        updateQuotaDisplay();
+        // 更新分享按钮状态（每日领取限制）
+        updateShareButtonState();
+    });
+</script>
+</body>
+</html>
