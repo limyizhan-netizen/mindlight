@@ -133,15 +133,19 @@
     <script>
         // ==================== Supabase 配置 ====================
         // 请替换为你的 Supabase 项目 URL 和 anon key
-        const SUPABASE_URL = 'https://wtwkgkgzhmdqkjwsdnra.supabase.co';    // ← 替换
-        const SUPABASE_ANON_KEY = 'sb_publishable_icFE0L4W6aAL5d9gAJE6Xw_YS4qx7ze';                 // ← 替换
-        
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
-        let currentUserId = null;      // Supabase 匿名用户 ID (UUID)
-        let remainingQuota = 5;        // 内存中的剩余次数
+        const SUPABASE_URL = 'https://wtwkgkgzhmdqkjwsdnra.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_icFE0L4W6aAL5d9gAJE6Xw_YS4qx7ze';
+
+        // 避免重复声明：检查是否已存在，否则创建
+        if (typeof window.supabaseClient === 'undefined') {
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+        const supabase = window.supabaseClient;  // 使用全局变量，但只赋值一次
+
+        let currentUserId = null;
+        let remainingQuota = 5;
         let lifeNum = 0;
-        let isInitialized = false;     // 是否已完成 Supabase 登录和配额加载
+        let isInitialized = false;
         
         // 性格类型映射（与之前一致）
         const profiles = {
@@ -165,13 +169,13 @@
         // ==================== Supabase 配额管理 ====================
         async function initSupabase() {
             // 1. 尝试恢复已有会话
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentUserId = session.user.id;
                 console.log("恢复会话, userId:", currentUserId);
             } else {
                 // 2. 匿名登录
-                const { data, error } = await supabase.auth.signInAnonymously();
+                const { data, error } = await supabaseClient.auth.signInAnonymously();
                 if (error) {
                     console.error("匿名登录失败:", error);
                     showToast("初始化失败，请刷新重试");
