@@ -89,6 +89,22 @@
             </div>
 
             <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-6 mb-6">
+                <!-- 每日一问模块 -->
+<div id="daily-question-card" class="mb-4 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 shadow-sm">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-calendar-alt text-indigo-500 text-sm"></i>
+            <span class="text-xs font-bold text-indigo-600">🌱 今日心灵探索</span>
+        </div>
+        <span id="daily-reward-status" class="text-[10px] text-indigo-400">+1 次对话</span>
+    </div>
+    <p id="daily-question-text" class="text-sm text-slate-700 mt-2 font-medium">加载中...</p>
+    <div class="mt-3 flex gap-2">
+        <input type="text" id="daily-answer-input" placeholder="写下你的感受..." class="flex-1 bg-white border border-indigo-200 rounded-full px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+        <button id="submit-daily-btn" class="bg-indigo-500 text-white px-4 py-2 rounded-full text-xs font-medium shadow-sm">提交</button>
+    </div>
+    <div id="daily-feedback" class="text-[10px] text-slate-400 mt-2 hidden"></div>
+</div>
                 <div id="chat-display" class="space-y-4 mb-4 max-h-80 overflow-y-auto custom-scrollbar pr-2 min-h-[140px]"></div>
 
                 <div id="suggestion-box" class="mb-4">
@@ -271,6 +287,7 @@
         document.getElementById('poster-desc').innerText = data.behavior;
         updateSuggestions(problemSuggestions);
         updateQuotaDisplay();
+        initDailyQuestion();
     }
     
     async function askAI(question) {
@@ -384,6 +401,90 @@
         t.style.opacity = "1";
         setTimeout(() => t.style.opacity = "0", 3000);
     }
+
+    // ==================== 每日一问功能 ====================
+const dailyQuestions = [
+    "今天让你感到温暖的一件小事是什么？",
+    "如果今天可以重来，你会改变什么？",
+    "你最近一次大笑是因为什么？",
+    "写下此刻你最想对自己说的一句话。",
+    "今天你学到了什么新东西？"
+];
+
+function getTodayQuestion() {
+    const dayIndex = Math.floor(Date.now() / 86400000) % dailyQuestions.length;
+    return dailyQuestions[dayIndex];
+}
+
+async function submitDailyAnswer() {
+    const answerInput = document.getElementById('daily-answer-input');
+    const answer = answerInput.value.trim();
+    if (!answer) {
+        showToast("写点什么吧～");
+        return;
+    }
+    const today = new Date().toISOString().slice(0,10);
+    const lastAnswerDate = localStorage.getItem('daily_answer_date');
+    if (lastAnswerDate === today) {
+        showToast("今天已经领取过奖励啦，明天再来吧～");
+        return;
+    }
+    // 调用 AI 处理回答
+    const submitBtn = document.getElementById('submit-daily-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "处理中...";
+    const loadingMsg = addBubble("✨ 感受你的分享...", 'ai', true);
+    try {
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lifeNum: lifeNum || 1,
+                question: `用户回答了今日问题：“${getTodayQuestion()}”，回答内容：“${answer}”。请给予一句温暖、鼓励的简短回应（不超过30字），不要提问。`
+            })
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        loadingMsg.remove();
+        addBubble(data.answer, 'ai');
+        // 奖励 +1 次数
+        await addQuota(1);
+        localStorage.setItem('daily_answer_date', today);
+        showToast("🎁 感谢分享！已获得 +1 次对话机会");
+        document.getElementById('daily-feedback').innerHTML = `<i class="fas fa-check-circle"></i> 今日已完成`;
+        document.getElementById('daily-feedback').classList.remove('hidden');
+        answerInput.disabled = true;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "已完成";
+    } catch (err) {
+        loadingMsg.remove();
+        addBubble("抱歉，处理失败，请稍后重试。", 'ai');
+        submitBtn.disabled = false;
+        submitBtn.innerText = "提交";
+        console.error(err);
+    }
+}
+
+// 初始化每日一问 UI
+function initDailyQuestion() {
+    const questionText = document.getElementById('daily-question-text');
+    if (questionText) questionText.innerText = getTodayQuestion();
+    const today = new Date().toISOString().slice(0,10);
+    const lastAnswerDate = localStorage.getItem('daily_answer_date');
+    if (lastAnswerDate === today) {
+        const answerInput = document.getElementById('daily-answer-input');
+        const submitBtn = document.getElementById('submit-daily-btn');
+        if (answerInput) answerInput.disabled = true;
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = "今日已打卡"; }
+        document.getElementById('daily-feedback').innerHTML = `<i class="fas fa-check-circle"></i> 今日已完成`;
+        document.getElementById('daily-feedback').classList.remove('hidden');
+    }
+    const submitBtn = document.getElementById('submit-daily-btn');
+    if (submitBtn) submitBtn.onclick = submitDailyAnswer;
+}
+
+// 在 initAnalysis 最后调用 initDailyQuestion（确保 DOM 已显示）
+// 修改 initAnalysis 函数，在 updateQuotaDisplay() 之后加上 initDailyQuestion();
     
     (async function preInit() {
         try {
