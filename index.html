@@ -191,7 +191,7 @@
                 .from('user_quotas')
                 .select('remaining_quota, last_reset_date')
                 .eq('user_id', currentUserId)
-                .single();
+                .maybesingle();
             
             if (error && error.code !== 'PGRST116') {
                 console.error("查询配额失败:", error);
