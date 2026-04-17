@@ -131,321 +131,302 @@
     <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full text-[11px] font-medium opacity-0 transition-all z-[100] shadow-2xl"></div>
 
     <script>
-        // ==================== Supabase 配置 ====================
-        // 请替换为你的 Supabase 项目 URL 和 anon key
-        const SUPABASE_URL = 'https://wtwkgkgzhmdqkjwsdnra.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_icFE0L4W6aAL5d9gAJE6Xw_YS4qx7ze';
+    // ==================== Supabase 配置 ====================
+    const SUPABASE_URL = 'https://wtwkgkgzhmdqkjwsdnra.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_icFE0L4W6aAL5d9gAJE6Xw_YS4qx7ze';
 
-        // 避免重复声明：检查是否已存在，否则创建
-        if (typeof window.supabaseClient === 'undefined') {
-        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        }
-        const supabase = window.supabaseClient;  // 使用全局变量，但只赋值一次
-
-        let currentUserId = null;
-        let remainingQuota = 5;
-        let lifeNum = 0;
-        let isInitialized = false;
-        
-        // 性格类型映射（与之前一致）
-        const profiles = {
-            1: { title: "自主型 (Autonomous)", behavior: "你倾向于通过自我掌控获得安全感，面对无法左右的情况时会感到焦虑。" },
-            2: { title: "协作型 (Cooperative)", behavior: "你极度看重他人的反馈，这使你具备亲和力，但也容易因此过度消耗自己。" },
-            3: { title: "表达型 (Expressive)", behavior: "你需要通过表达来整理思绪，当沟通受阻或不被理解时，你会感到明显的能量停滞。" },
-            4: { title: "稳定型 (Stable)", behavior: "你依靠规则和秩序来维持平衡，任何计划之外的变动都可能挑战你的心理安全边界。" },
-            5: { title: "探索型 (Exploratory)", behavior: "你天生好奇且多变，最让你痛苦的往往是枯燥的重复和失去选择的自由。" },
-            6: { title: "责任型 (Responsible)", behavior: "你习惯承担起照顾环境的重任，这虽然让你可靠，但也让你难以分清哪些是别人的包袱。" },
-            7: { title: "分析型 (Analytical)", behavior: "你依赖逻辑推导世界，这让你专业且严谨，但也常让你陷入“思考即行动”的错觉。" },
-            8: { title: "掌控型 (Directive)", behavior: "你追求效能与产出，你最大的难题往往源于“无法忍受他人的低效或模糊状态”。" },
-            9: { title: "包容型 (Inclusive)", behavior: "你追求大同与和谐，这让你具备宏观视角，但也让你在需要做利益切割时倍感纠结。" }
-        };
-        
-        const problemSuggestions = [
-            "工作压力非常大，但我不知道该怎么拒绝不合理的任务...",
-            "我总是在讨好别人，感觉快要把真实的自己弄丢了...",
-            "现在面临一个大的转折点，我怕选错了会后悔一辈子..."
-        ];
-        
-        // ==================== Supabase 配额管理 ====================
-        async function initSupabase() {
-            // 1. 尝试恢复已有会话
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                currentUserId = session.user.id;
-                console.log("恢复会话, userId:", currentUserId);
-            } else {
-                // 2. 匿名登录
-                const { data, error } = await supabase.auth.signInAnonymously();
-                if (error) {
-                    console.error("匿名登录失败:", error);
-                    showToast("初始化失败，请刷新重试");
-                    return false;
-                }
-                currentUserId = data.user.id;
-                console.log("匿名登录成功, userId:", currentUserId);
+    // 使用全局唯一的变量名
+    if (!window._sbClient) {
+        window._sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    const sbClient = window._sbClient;   // 改用 sbClient，避免冲突
+    
+    let currentUserId = null;
+    let remainingQuota = 5;
+    let lifeNum = 0;
+    let isInitialized = false;
+    
+    // 性格类型映射
+    const profiles = {
+        1: { title: "自主型 (Autonomous)", behavior: "你倾向于通过自我掌控获得安全感，面对无法左右的情况时会感到焦虑。" },
+        2: { title: "协作型 (Cooperative)", behavior: "你极度看重他人的反馈，这使你具备亲和力，但也容易因此过度消耗自己。" },
+        3: { title: "表达型 (Expressive)", behavior: "你需要通过表达来整理思绪，当沟通受阻或不被理解时，你会感到明显的能量停滞。" },
+        4: { title: "稳定型 (Stable)", behavior: "你依靠规则和秩序来维持平衡，任何计划之外的变动都可能挑战你的心理安全边界。" },
+        5: { title: "探索型 (Exploratory)", behavior: "你天生好奇且多变，最让你痛苦的往往是枯燥的重复和失去选择的自由。" },
+        6: { title: "责任型 (Responsible)", behavior: "你习惯承担起照顾环境的重任，这虽然让你可靠，但也让你难以分清哪些是别人的包袱。" },
+        7: { title: "分析型 (Analytical)", behavior: "你依赖逻辑推导世界，这让你专业且严谨，但也常让你陷入“思考即行动”的错觉。" },
+        8: { title: "掌控型 (Directive)", behavior: "你追求效能与产出，你最大的难题往往源于“无法忍受他人的低效或模糊状态”。" },
+        9: { title: "包容型 (Inclusive)", behavior: "你追求大同与和谐，这让你具备宏观视角，但也让你在需要做利益切割时倍感纠结。" }
+    };
+    
+    const problemSuggestions = [
+        "工作压力非常大，但我不知道该怎么拒绝不合理的任务...",
+        "我总是在讨好别人，感觉快要把真实的自己弄丢了...",
+        "现在面临一个大的转折点，我怕选错了会后悔一辈子..."
+    ];
+    
+    // ==================== Supabase 配额管理 ====================
+    async function initSupabase() {
+        const { data: { session } } = await sbClient.auth.getSession();
+        if (session) {
+            currentUserId = session.user.id;
+            console.log("恢复会话, userId:", currentUserId);
+        } else {
+            const { data, error } = await sbClient.auth.signInAnonymously();
+            if (error) {
+                console.error("匿名登录失败:", error);
+                showToast("初始化失败，请刷新重试");
+                return false;
             }
-            
-            // 3. 加载或创建配额记录
-            await loadQuotaFromDB();
-            return true;
+            currentUserId = data.user.id;
+            console.log("匿名登录成功, userId:", currentUserId);
         }
-        
-        async function loadQuotaFromDB() {
-            try {
-                // 查询配额
-                let { data, error } = await supabase
-                    .from('user_quotas')
-                    .select('remaining_quota, last_reset_date')
-                    .eq('user_id', currentUserId)
-                    .single();
-                
-                if (error && error.code !== 'PGRST116') { // PGRST116 表示未找到记录
-                    console.error("查询配额失败:", error);
-                    remainingQuota = 5;
-                    updateQuotaDisplay();
-                    return;
-                }
-                
-                if (!data) {
-                    // 首次使用：创建默认配额（remaining_quota = 5, last_reset_date = 今天）
-                    const today = new Date().toISOString().slice(0,10);
-                    const { error: insertError } = await supabase
-                        .from('user_quotas')
-                        .insert({ user_id: currentUserId, remaining_quota: 5, last_reset_date: today });
-                    if (insertError) console.error("创建配额失败:", insertError);
-                    remainingQuota = 5;
-                } else {
-                    // 检查是否需要每日重置
-                    const today = new Date().toISOString().slice(0,10);
-                    if (data.last_reset_date !== today) {
-                        // 重置为每日免费次数（5次）
-                        const { error: updateError } = await supabase
-                            .from('user_quotas')
-                            .update({ remaining_quota: 5, last_reset_date: today })
-                            .eq('user_id', currentUserId);
-                        if (updateError) console.error("重置配额失败:", updateError);
-                        remainingQuota = 5;
-                    } else {
-                        remainingQuota = data.remaining_quota;
-                    }
-                }
-                updateQuotaDisplay();
-            } catch (err) {
-                console.error("loadQuotaFromDB 异常:", err);
+        await loadQuotaFromDB();
+        return true;
+    }
+    
+    async function loadQuotaFromDB() {
+        try {
+            let { data, error } = await sbClient
+                .from('user_quotas')
+                .select('remaining_quota, last_reset_date')
+                .eq('user_id', currentUserId)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') {
+                console.error("查询配额失败:", error);
                 remainingQuota = 5;
                 updateQuotaDisplay();
+                return;
             }
-        }
-        
-        async function saveQuotaToDB(newQuota) {
-            if (!currentUserId) return;
-            try {
-                const { error } = await supabase
+            
+            if (!data) {
+                const today = new Date().toISOString().slice(0,10);
+                const { error: insertError } = await sbClient
                     .from('user_quotas')
-                    .upsert({ user_id: currentUserId, remaining_quota: newQuota }, { onConflict: 'user_id' });
-                if (error) console.error("保存配额失败:", error);
-            } catch (err) {
-                console.error("saveQuotaToDB 异常:", err);
+                    .insert({ user_id: currentUserId, remaining_quota: 5, last_reset_date: today });
+                if (insertError) console.error("创建配额失败:", insertError);
+                remainingQuota = 5;
+            } else {
+                const today = new Date().toISOString().slice(0,10);
+                if (data.last_reset_date !== today) {
+                    const { error: updateError } = await sbClient
+                        .from('user_quotas')
+                        .update({ remaining_quota: 5, last_reset_date: today })
+                        .eq('user_id', currentUserId);
+                    if (updateError) console.error("重置配额失败:", updateError);
+                    remainingQuota = 5;
+                } else {
+                    remainingQuota = data.remaining_quota;
+                }
             }
-        }
-        
-        // 消耗一次配额（同时更新内存和数据库）
-        async function consumeQuota() {
-            if (remainingQuota <= 0) return false;
-            remainingQuota--;
             updateQuotaDisplay();
-            await saveQuotaToDB(remainingQuota);
-            return true;
-        }
-        
-        // 增加配额（用于充值、分享奖励）
-        async function addQuota(amount) {
-            remainingQuota += amount;
-            updateQuotaDisplay();
-            await saveQuotaToDB(remainingQuota);
-        }
-        
-        function updateQuotaDisplay() {
-            const badge = document.getElementById('quota-badge');
-            if (badge) badge.innerText = `剩余额度: ${remainingQuota}`;
-        }
-        
-        // 每日分享领奖限制（仍然使用 localStorage，因为这是用户行为限制，不涉及跨设备）
-        const LAST_DATE_KEY = 'mindlight_last_date';
-        function canClaimDailyReward() {
-            const today = new Date().toISOString().slice(0, 10);
-            const lastClaimDate = localStorage.getItem(LAST_DATE_KEY);
-            return lastClaimDate !== today;
-        }
-        function markDailyRewardClaimed() {
-            const today = new Date().toISOString().slice(0, 10);
-            localStorage.setItem(LAST_DATE_KEY, today);
-        }
-        
-        // ==================== 原有功能（适配异步配额） ====================
-        async function initAnalysis() {
-            const date = document.getElementById('birthday').value;
-            if(!date) return showToast("请选择日期");
-            
-            // 确保 Supabase 已初始化
-            if (!isInitialized) {
-                const ok = await initSupabase();
-                if (!ok) return;
-                isInitialized = true;
-            }
-            
-            const digits = date.replace(/-/g, '').split('');
-            let sum = digits.reduce((a, b) => parseInt(a) + parseInt(b), 0);
-            while (sum > 9) sum = sum.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0);
-            lifeNum = sum;
-            
-            document.getElementById('setup-view').classList.add('hidden');
-            document.getElementById('main-view').classList.remove('hidden');
-            
-            const data = profiles[lifeNum];
-            document.getElementById('res-num').innerText = lifeNum;
-            document.getElementById('res-title').innerText = data.title;
-            document.getElementById('res-behavior').innerText = `“${data.behavior}”`;
-            
-            const welcomeMsg = `你好。作为编号 ${lifeNum} 的${data.title}，我留意到你${data.behavior.split('，')[1]}。很多时候，我们的天赋也是我们的压力来源。比如，你现在的生活中，有没有哪种情况让你觉得特别“卡顿”？可以是工作中的人际消耗，也可以是感情里的某种死循环。如果你愿意，可以点击下方的建议描述，或者直接跟我说。`;
-            addBubble(welcomeMsg, 'ai');
-            
-            document.getElementById('poster-num').innerText = lifeNum;
-            document.getElementById('poster-title').innerText = data.title;
-            document.getElementById('poster-desc').innerText = data.behavior;
-            
-            updateSuggestions(problemSuggestions);
+        } catch (err) {
+            console.error("loadQuotaFromDB 异常:", err);
+            remainingQuota = 5;
             updateQuotaDisplay();
         }
+    }
+    
+    async function saveQuotaToDB(newQuota) {
+        if (!currentUserId) return;
+        try {
+            const { error } = await sbClient
+                .from('user_quotas')
+                .upsert({ user_id: currentUserId, remaining_quota: newQuota }, { onConflict: 'user_id' });
+            if (error) console.error("保存配额失败:", error);
+        } catch (err) {
+            console.error("saveQuotaToDB 异常:", err);
+        }
+    }
+    
+    async function consumeQuota() {
+        if (remainingQuota <= 0) return false;
+        remainingQuota--;
+        updateQuotaDisplay();
+        await saveQuotaToDB(remainingQuota);
+        return true;
+    }
+    
+    async function addQuota(amount) {
+        remainingQuota += amount;
+        updateQuotaDisplay();
+        await saveQuotaToDB(remainingQuota);
+    }
+    
+    function updateQuotaDisplay() {
+        const badge = document.getElementById('quota-badge');
+        if (badge) badge.innerText = `剩余额度: ${remainingQuota}`;
+    }
+    
+    const LAST_DATE_KEY = 'mindlight_last_date';
+    function canClaimDailyReward() {
+        const today = new Date().toISOString().slice(0, 10);
+        const lastClaimDate = localStorage.getItem(LAST_DATE_KEY);
+        return lastClaimDate !== today;
+    }
+    function markDailyRewardClaimed() {
+        const today = new Date().toISOString().slice(0, 10);
+        localStorage.setItem(LAST_DATE_KEY, today);
+    }
+    
+    // ==================== 原有功能 ====================
+    async function initAnalysis() {
+        const date = document.getElementById('birthday').value;
+        if(!date) return showToast("请选择日期");
         
-        async function askAI(question) {
-            if (remainingQuota <= 0) {
-                document.getElementById('pay-modal').classList.remove('hidden');
-                return;
-            }
-            document.getElementById('user-input').value = '';
-            addBubble(question, 'user');
-            const loading = addBubble('正在整理分析建议...', 'ai', true);
-            
-            // 消耗配额（同步内存和数据库）
-            const consumed = await consumeQuota();
-            if (!consumed) {
-                loading.remove();
-                addBubble("抱歉，你的次数已用完。", 'ai');
-                document.getElementById('pay-modal').classList.remove('hidden');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/gemini', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lifeNum, question })
-                });
-                const data = await response.json();
-                if (data.error) throw new Error(data.error);
-                loading.remove();
-                addBubble(data.answer, 'ai');
-                updateSuggestions(data.questions || data.suggestions || problemSuggestions);
-                if (remainingQuota === 0) setTimeout(() => document.getElementById('pay-modal').classList.remove('hidden'), 2000);
-            } catch (e) {
-                loading.remove();
-                addBubble("抱歉，我的分析模块遇到了一点波动。请稍后重试。", 'ai');
-                // 退还配额
-                remainingQuota++;
-                updateQuotaDisplay();
-                await saveQuotaToDB(remainingQuota);
-            }
+        if (!isInitialized) {
+            const ok = await initSupabase();
+            if (!ok) return;
+            isInitialized = true;
         }
         
-        function addBubble(text, role, isLoading = false) {
-            const display = document.getElementById('chat-display');
-            const wrapper = document.createElement('div');
-            wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-300`;
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble px-4 py-3 text-[12px] leading-relaxed shadow-sm ${role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`;
-            if (isLoading) bubble.classList.add('loading-dots');
-            bubble.innerText = text;
-            wrapper.appendChild(bubble);
-            display.appendChild(wrapper);
-            display.scrollTop = display.scrollHeight;
-            return wrapper;
+        const digits = date.replace(/-/g, '').split('');
+        let sum = digits.reduce((a, b) => parseInt(a) + parseInt(b), 0);
+        while (sum > 9) sum = sum.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0);
+        lifeNum = sum;
+        
+        document.getElementById('setup-view').classList.add('hidden');
+        document.getElementById('main-view').classList.remove('hidden');
+        
+        const data = profiles[lifeNum];
+        document.getElementById('res-num').innerText = lifeNum;
+        document.getElementById('res-title').innerText = data.title;
+        document.getElementById('res-behavior').innerText = `“${data.behavior}”`;
+        
+        const welcomeMsg = `你好。作为编号 ${lifeNum} 的${data.title}，我留意到你${data.behavior.split('，')[1]}。很多时候，我们的天赋也是我们的压力来源。比如，你现在的生活中，有没有哪种情况让你觉得特别“卡顿”？可以是工作中的人际消耗，也可以是感情里的某种死循环。如果你愿意，可以点击下方的建议描述，或者直接跟我说。`;
+        addBubble(welcomeMsg, 'ai');
+        
+        document.getElementById('poster-num').innerText = lifeNum;
+        document.getElementById('poster-title').innerText = data.title;
+        document.getElementById('poster-desc').innerText = data.behavior;
+        
+        updateSuggestions(problemSuggestions);
+        updateQuotaDisplay();
+    }
+    
+    async function askAI(question) {
+        if (remainingQuota <= 0) {
+            document.getElementById('pay-modal').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('user-input').value = '';
+        addBubble(question, 'user');
+        const loading = addBubble('正在整理分析建议...', 'ai', true);
+        
+        const consumed = await consumeQuota();
+        if (!consumed) {
+            loading.remove();
+            addBubble("抱歉，你的次数已用完。", 'ai');
+            document.getElementById('pay-modal').classList.remove('hidden');
+            return;
         }
         
-        function updateSuggestions(questions) {
-            const list = document.getElementById('suggestion-list');
-            list.innerHTML = '';
-            questions.forEach(q => {
-                const btn = document.createElement('button');
-                btn.className = "text-left bg-slate-50/60 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 text-[10px] px-4 py-3 rounded-2xl transition-all border border-slate-100/50 flex items-start gap-2 group";
-                btn.innerHTML = `<span class="opacity-20 mt-1 group-hover:opacity-100"><i class="fas fa-comment-dots"></i></span> <span class="flex-1">${q}</span>`;
-                btn.onclick = () => askAI(q);
-                list.appendChild(btn);
+        try {
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lifeNum, question })
             });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            loading.remove();
+            addBubble(data.answer, 'ai');
+            updateSuggestions(data.questions || data.suggestions || problemSuggestions);
+            if (remainingQuota === 0) setTimeout(() => document.getElementById('pay-modal').classList.remove('hidden'), 2000);
+        } catch (e) {
+            loading.remove();
+            addBubble("抱歉，我的分析模块遇到了一点波动。请稍后重试。", 'ai');
+            remainingQuota++;
+            updateQuotaDisplay();
+            await saveQuotaToDB(remainingQuota);
         }
-        
-        function handleSend() {
-            const val = document.getElementById('user-input').value.trim();
-            if (val) askAI(val);
+    }
+    
+    function addBubble(text, role, isLoading = false) {
+        const display = document.getElementById('chat-display');
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-300`;
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble px-4 py-3 text-[12px] leading-relaxed shadow-sm ${role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`;
+        if (isLoading) bubble.classList.add('loading-dots');
+        bubble.innerText = text;
+        wrapper.appendChild(bubble);
+        display.appendChild(wrapper);
+        display.scrollTop = display.scrollHeight;
+        return wrapper;
+    }
+    
+    function updateSuggestions(questions) {
+        const list = document.getElementById('suggestion-list');
+        list.innerHTML = '';
+        questions.forEach(q => {
+            const btn = document.createElement('button');
+            btn.className = "text-left bg-slate-50/60 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 text-[10px] px-4 py-3 rounded-2xl transition-all border border-slate-100/50 flex items-start gap-2 group";
+            btn.innerHTML = `<span class="opacity-20 mt-1 group-hover:opacity-100"><i class="fas fa-comment-dots"></i></span> <span class="flex-1">${q}</span>`;
+            btn.onclick = () => askAI(q);
+            list.appendChild(btn);
+        });
+    }
+    
+    function handleSend() {
+        const val = document.getElementById('user-input').value.trim();
+        if (val) askAI(val);
+    }
+    
+    async function downloadPoster() {
+        if (!canClaimDailyReward()) {
+            showToast("你今天已经领取过奖励啦，明天再来吧～");
+            return;
         }
-        
-        async function downloadPoster() {
-            if (!canClaimDailyReward()) {
-                showToast("你今天已经领取过奖励啦，明天再来吧～");
-                return;
-            }
-            const btn = document.getElementById('share-btn');
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> 生成中...`;
-            try {
-                const canvas = await html2canvas(document.getElementById('poster-template'), { scale: 2 });
-                const link = document.createElement('a');
-                link.download = `MindLight_Report.png`;
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-                
-                await addQuota(1);
-                markDailyRewardClaimed();
-                
-                btn.onclick = null;
-                btn.className = "text-slate-300 text-[10px] font-bold uppercase tracking-widest flex items-center";
-                btn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> 今日已领取`;
-                showToast("✅ 已保存。额度已加 1，明天再来领～");
-            } catch (e) {
-                showToast("保存失败，请重试");
-                btn.innerHTML = `<i class="fas fa-magic mr-1"></i> 保存画像领奖励`;
-            }
+        const btn = document.getElementById('share-btn');
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> 生成中...`;
+        try {
+            const canvas = await html2canvas(document.getElementById('poster-template'), { scale: 2 });
+            const link = document.createElement('a');
+            link.download = `MindLight_Report.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            await addQuota(1);
+            markDailyRewardClaimed();
+            btn.onclick = null;
+            btn.className = "text-slate-300 text-[10px] font-bold uppercase tracking-widest flex items-center";
+            btn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> 今日已领取`;
+            showToast("✅ 已保存。额度已加 1，明天再来领～");
+        } catch (e) {
+            showToast("保存失败，请重试");
+            btn.innerHTML = `<i class="fas fa-magic mr-1"></i> 保存画像领奖励`;
         }
-        
-        function processPayment() {
-            showToast("正在建立安全支付连接...");
-            setTimeout(async () => { 
-                await addQuota(8);
-                closeModal(); 
-                showToast("✅ 教练包已解锁。"); 
-            }, 1500);
+    }
+    
+    function processPayment() {
+        showToast("正在建立安全支付连接...");
+        setTimeout(async () => { 
+            await addQuota(8);
+            closeModal(); 
+            showToast("✅ 教练包已解锁。"); 
+        }, 1500);
+    }
+    
+    function closeModal() { 
+        document.getElementById('pay-modal').classList.add('hidden'); 
+    }
+    
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg; 
+        t.style.opacity = "1";
+        setTimeout(() => t.style.opacity = "0", 3000);
+    }
+    
+    (async function preInit() {
+        try {
+            const ok = await initSupabase();
+            if (ok) isInitialized = true;
+        } catch (e) {
+            console.warn("预初始化失败，将在生日分析时重试", e);
         }
-        
-        function closeModal() { 
-            document.getElementById('pay-modal').classList.add('hidden'); 
-        }
-        
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.innerText = msg; 
-            t.style.opacity = "1";
-            setTimeout(() => t.style.opacity = "0", 3000);
-        }
-        
-        // 页面加载时预先初始化 Supabase（但不显示主界面，等用户输入生日后再完成后续）
-        (async function preInit() {
-            // 先尝试初始化 Supabase，但不要阻塞界面
-            try {
-                const ok = await initSupabase();
-                if (ok) isInitialized = true;
-            } catch (e) {
-                console.warn("预初始化失败，将在生日分析时重试", e);
-            }
-        })();
-    </script>
+    })();
+</script>
 </body>
 </html>
