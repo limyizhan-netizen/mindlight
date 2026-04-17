@@ -131,7 +131,6 @@
     <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full text-[11px] font-medium opacity-0 transition-all z-[100] shadow-2xl"></div>
 
 <script>
-    // ==================== Supabase 配置 ====================
     const SUPABASE_URL = 'https://wtwkgkgzhmdqkjwsdnra.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_icFE0L4W6aAL5d9gAJE6Xw_YS4qx7ze';
 
@@ -145,7 +144,6 @@
     let lifeNum = 0;
     let isInitialized = false;
     
-    // 性格类型映射
     const profiles = {
         1: { title: "自主型 (Autonomous)", behavior: "你倾向于通过自我掌控获得安全感，面对无法左右的情况时会感到焦虑。" },
         2: { title: "协作型 (Cooperative)", behavior: "你极度看重他人的反馈，这使你具备亲和力，但也容易因此过度消耗自己。" },
@@ -164,7 +162,6 @@
         "现在面临一个大的转折点，我怕选错了会后悔一辈子..."
     ];
     
-    // ==================== Supabase 配额管理（使用 RPC 函数） ====================
     async function initSupabase() {
         const { data: { session } } = await sbClient.auth.getSession();
         if (session) {
@@ -186,9 +183,22 @@
     
     async function loadQuotaFromDB() {
         try {
-            const { data, error } = await sbClient.rpc('reset_user_quota_if_needed', { p_user_id: currentUserId });
+            let { data, error } = await sbClient
+                .from('user_quotas')
+                .select('remaining_quota, last_reset_date')
+                .eq('user_id', currentUserId)
+                .maybeSingle();
             if (error) throw error;
-            remainingQuota = data;
+            const today = new Date().toISOString().slice(0,10);
+            if (!data) {
+                await sbClient.from('user_quotas').insert({ user_id: currentUserId, remaining_quota: 5, last_reset_date: today });
+                remainingQuota = 5;
+            } else if (data.last_reset_date !== today) {
+                await sbClient.from('user_quotas').update({ remaining_quota: 5, last_reset_date: today }).eq('user_id', currentUserId);
+                remainingQuota = 5;
+            } else {
+                remainingQuota = data.remaining_quota;
+            }
             updateQuotaDisplay();
         } catch (err) {
             console.error("loadQuotaFromDB 异常:", err);
@@ -200,8 +210,7 @@
     async function saveQuotaToDB(newQuota) {
         if (!currentUserId) return;
         try {
-            const { error } = await sbClient.rpc('set_user_quota', { p_user_id: currentUserId, new_quota: newQuota });
-            if (error) console.error("保存配额失败:", error);
+            await sbClient.from('user_quotas').upsert({ user_id: currentUserId, remaining_quota: newQuota }, { onConflict: 'user_id' });
         } catch (err) {
             console.error("saveQuotaToDB 异常:", err);
         }
@@ -237,37 +246,29 @@
         localStorage.setItem(LAST_DATE_KEY, today);
     }
     
-    // ==================== 原有功能 ====================
     async function initAnalysis() {
         const date = document.getElementById('birthday').value;
         if(!date) return showToast("请选择日期");
-        
         if (!isInitialized) {
             const ok = await initSupabase();
             if (!ok) return;
             isInitialized = true;
         }
-        
         const digits = date.replace(/-/g, '').split('');
         let sum = digits.reduce((a, b) => parseInt(a) + parseInt(b), 0);
         while (sum > 9) sum = sum.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0);
         lifeNum = sum;
-        
         document.getElementById('setup-view').classList.add('hidden');
         document.getElementById('main-view').classList.remove('hidden');
-        
         const data = profiles[lifeNum];
         document.getElementById('res-num').innerText = lifeNum;
         document.getElementById('res-title').innerText = data.title;
         document.getElementById('res-behavior').innerText = `“${data.behavior}”`;
-        
         const welcomeMsg = `你好。作为编号 ${lifeNum} 的${data.title}，我留意到你${data.behavior.split('，')[1]}。很多时候，我们的天赋也是我们的压力来源。比如，你现在的生活中，有没有哪种情况让你觉得特别“卡顿”？可以是工作中的人际消耗，也可以是感情里的某种死循环。如果你愿意，可以点击下方的建议描述，或者直接跟我说。`;
         addBubble(welcomeMsg, 'ai');
-        
         document.getElementById('poster-num').innerText = lifeNum;
         document.getElementById('poster-title').innerText = data.title;
         document.getElementById('poster-desc').innerText = data.behavior;
-        
         updateSuggestions(problemSuggestions);
         updateQuotaDisplay();
     }
@@ -280,7 +281,6 @@
         document.getElementById('user-input').value = '';
         addBubble(question, 'user');
         const loading = addBubble('正在整理分析建议...', 'ai', true);
-        
         const consumed = await consumeQuota();
         if (!consumed) {
             loading.remove();
@@ -288,7 +288,6 @@
             document.getElementById('pay-modal').classList.remove('hidden');
             return;
         }
-        
         try {
             const response = await fetch('/api/gemini', {
                 method: 'POST',
