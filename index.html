@@ -169,13 +169,13 @@
         // ==================== Supabase 配额管理 ====================
         async function initSupabase() {
             // 1. 尝试恢复已有会话
-            const { data: { session } } = await supabaseClient.auth.getSession();
+            const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 currentUserId = session.user.id;
                 console.log("恢复会话, userId:", currentUserId);
             } else {
                 // 2. 匿名登录
-                const { data, error } = await supabaseClient.auth.signInAnonymously();
+                const { data, error } = await supabase.auth.signInAnonymously();
                 if (error) {
                     console.error("匿名登录失败:", error);
                     showToast("初始化失败，请刷新重试");
