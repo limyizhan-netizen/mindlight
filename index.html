@@ -130,16 +130,15 @@
 
     <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full text-[11px] font-medium opacity-0 transition-all z-[100] shadow-2xl"></div>
 
-    <script>
+<script>
     // ==================== Supabase 配置 ====================
     const SUPABASE_URL = 'https://wtwkgkgzhmdqkjwsdnra.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_icFE0L4W6aAL5d9gAJE6Xw_YS4qx7ze';
 
-    // 使用全局唯一的变量名
     if (!window._sbClient) {
         window._sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
-    const sbClient = window._sbClient;   // 改用 sbClient，避免冲突
+    const sbClient = window._sbClient;
     
     let currentUserId = null;
     let remainingQuota = 5;
@@ -165,7 +164,7 @@
         "现在面临一个大的转折点，我怕选错了会后悔一辈子..."
     ];
     
-    // ==================== Supabase 配额管理 ====================
+    // ==================== Supabase 配额管理（使用 RPC 函数） ====================
     async function initSupabase() {
         const { data: { session } } = await sbClient.auth.getSession();
         if (session) {
@@ -187,39 +186,9 @@
     
     async function loadQuotaFromDB() {
         try {
-            let { data, error } = await sbClient
-                .from('user_quotas')
-                .select('remaining_quota, last_reset_date')
-                .eq('user_id', currentUserId)
-                .maybeSingle();
-            
-            if (error && error.code !== 'PGRST116') {
-                console.error("查询配额失败:", error);
-                remainingQuota = 5;
-                updateQuotaDisplay();
-                return;
-            }
-            
-            if (!data) {
-                const today = new Date().toISOString().slice(0,10);
-                const { error: insertError } = await sbClient
-                    .from('user_quotas')
-                    .insert({ user_id: currentUserId, remaining_quota: 5, last_reset_date: today });
-                if (insertError) console.error("创建配额失败:", insertError);
-                remainingQuota = 5;
-            } else {
-                const today = new Date().toISOString().slice(0,10);
-                if (data.last_reset_date !== today) {
-                    const { error: updateError } = await sbClient
-                        .from('user_quotas')
-                        .update({ remaining_quota: 5, last_reset_date: today })
-                        .eq('user_id', currentUserId);
-                    if (updateError) console.error("重置配额失败:", updateError);
-                    remainingQuota = 5;
-                } else {
-                    remainingQuota = data.remaining_quota;
-                }
-            }
+            const { data, error } = await sbClient.rpc('reset_user_quota_if_needed', { user_id: currentUserId });
+            if (error) throw error;
+            remainingQuota = data;
             updateQuotaDisplay();
         } catch (err) {
             console.error("loadQuotaFromDB 异常:", err);
@@ -231,9 +200,7 @@
     async function saveQuotaToDB(newQuota) {
         if (!currentUserId) return;
         try {
-            const { error } = await sbClient
-                .from('user_quotas')
-                .upsert({ user_id: currentUserId, remaining_quota: newQuota }, { onConflict: 'user_id' });
+            const { error } = await sbClient.rpc('set_user_quota', { user_id: currentUserId, new_quota: newQuota });
             if (error) console.error("保存配额失败:", error);
         } catch (err) {
             console.error("saveQuotaToDB 异常:", err);
