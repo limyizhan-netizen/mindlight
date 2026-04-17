@@ -186,7 +186,7 @@
     
     async function loadQuotaFromDB() {
         try {
-            const { data, error } = await sbClient.rpc('reset_user_quota_if_needed', { user_id: currentUserId });
+            const { data, error } = await sbClient.rpc('reset_user_quota_if_needed', { p_user_id: currentUserId });
             if (error) throw error;
             remainingQuota = data;
             updateQuotaDisplay();
@@ -200,7 +200,7 @@
     async function saveQuotaToDB(newQuota) {
         if (!currentUserId) return;
         try {
-            const { error } = await sbClient.rpc('set_user_quota', { user_id: currentUserId, new_quota: newQuota });
+            const { error } = await sbClient.rpc('set_user_quota', { p_user_id: currentUserId, new_quota: newQuota });
             if (error) console.error("保存配额失败:", error);
         } catch (err) {
             console.error("saveQuotaToDB 异常:", err);
