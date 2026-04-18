@@ -221,53 +221,93 @@
             return dailyQuestions[dayIndex];
         }
 
-        async function submitDailyAnswer() {
-            const answerInput = document.getElementById('daily-answer-input');
-            const answer = answerInput.value.trim();
-            if (!answer) {
-                showToast("写点什么吧～");
-                return;
+async function submitDailyAnswer() {
+    const answerInput = document.getElementById('daily-answer-input');
+    const answer = answerInput.value.trim();
+    if (!answer) {
+        showToast("写点什么吧～");
+        return;
+    }
+    const today = new Date().toISOString().slice(0,10);
+    const lastAnswerDate = localStorage.getItem('daily_answer_date');
+    if (lastAnswerDate === today) {
+        showToast("今天已经领取过奖励啦，明天再来吧～");
+        return;
+    }
+    const submitBtn = document.getElementById('submit-daily-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "处理中...";
+    
+    // 第一次调用 AI：温暖回应
+    const loadingMsg = addBubble("✨ 感受你的分享...", 'ai', true);
+    try {
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lifeNum: lifeNum || 1,
+                question: `用户回答了今日心情打卡问题：“${getTodayQuestion()}”，回答内容：“${answer}”。请给予一句温暖、鼓励的简短回应（不超过30字），不要提问。`
+            })
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        loadingMsg.remove();
+        addBubble(data.answer, 'ai');
+        
+        // 奖励 +1 次数
+        await addQuota(1);
+        localStorage.setItem('daily_answer_date', today);
+        showToast("🎁 感谢分享！已获得 +1 次对话机会");
+        document.getElementById('daily-feedback').innerHTML = `<i class="fas fa-check-circle"></i> 今日已完成`;
+        document.getElementById('daily-feedback').classList.remove('hidden');
+        answerInput.disabled = true;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "已完成";
+        
+        // ========== 第二次调用 AI：生成深度提问（不消耗用户配额） ==========
+        const loadingExt = addBubble("🤔 为你准备一个深入话题...", 'ai', true);
+        try {
+            const extResponse = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lifeNum: lifeNum || 1,
+                    question: `用户刚刚表达了心情：“${answer}”。请根据这个心情，生成一个可以引导用户进一步自我探索的问题（不超过25字），不要评价，直接输出问题，不要加引号。`
+                })
+            });
+            const extData = await extResponse.json();
+            loadingExt.remove();
+            if (!extData.error && extData.answer) {
+                const deepQuestion = extData.answer;
+                addBubble(`💡 今日延伸话题：${deepQuestion}`, 'ai');
+                // 将新问题添加到建议列表顶部
+                const currentSuggestions = [...problemSuggestions];
+                currentSuggestions.unshift(deepQuestion);
+                updateSuggestions(currentSuggestions);
+                // 可选：保存到 localStorage 以便刷新后仍显示（略）
+            } else {
+                throw new Error("生成话题失败");
             }
-            const today = new Date().toISOString().slice(0,10);
-            const lastAnswerDate = localStorage.getItem('daily_answer_date');
-            if (lastAnswerDate === today) {
-                showToast("今天已经领取过奖励啦，明天再来吧～");
-                return;
-            }
-            const submitBtn = document.getElementById('submit-daily-btn');
-            submitBtn.disabled = true;
-            submitBtn.innerText = "处理中...";
-            const loadingMsg = addBubble("✨ 感受你的分享...", 'ai', true);
-            try {
-                const response = await fetch('/api/gemini', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        lifeNum: lifeNum || 1,
-                        question: `用户回答了今日心情打卡问题：“${getTodayQuestion()}”，回答内容：“${answer}”。请给予一句温暖、鼓励的简短回应（不超过30字），不要提问。`
-                    })
-                });
-                const data = await response.json();
-                if (data.error) throw new Error(data.error);
-                loadingMsg.remove();
-                addBubble(data.answer, 'ai');
-                await addQuota(1);
-                localStorage.setItem('daily_answer_date', today);
-                showToast("🎁 感谢分享！已获得 +1 次对话机会");
-                document.getElementById('daily-feedback').innerHTML = `<i class="fas fa-check-circle"></i> 今日已完成`;
-                document.getElementById('daily-feedback').classList.remove('hidden');
-                answerInput.disabled = true;
-                submitBtn.disabled = true;
-                submitBtn.innerText = "已完成";
-            } catch (err) {
-                loadingMsg.remove();
-                addBubble("抱歉，处理失败，请稍后重试。", 'ai');
-                submitBtn.disabled = false;
-                submitBtn.innerText = "提交";
-                console.error(err);
-            }
+        } catch (err) {
+            loadingExt.remove();
+            console.warn("生成延伸话题失败", err);
+            // 降级：使用默认话题
+            const fallbackQuestion = "今天的心情对你的选择有什么影响？";
+            addBubble(`💡 今日延伸话题：${fallbackQuestion}`, 'ai');
+            const currentSuggestions = [...problemSuggestions];
+            currentSuggestions.unshift(fallbackQuestion);
+            updateSuggestions(currentSuggestions);
         }
-
+        
+    } catch (err) {
+        loadingMsg.remove();
+        addBubble("抱歉，处理失败，请稍后重试。", 'ai');
+        submitBtn.disabled = false;
+        submitBtn.innerText = "提交";
+        console.error(err);
+    }
+}
+        
         function initDailyQuestion() {
             const questionText = document.getElementById('daily-question-text');
             if (questionText) questionText.innerText = getTodayQuestion();
