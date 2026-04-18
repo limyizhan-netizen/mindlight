@@ -164,7 +164,7 @@
             <p class="text-[10px] text-slate-400 mb-8 leading-relaxed">助手已根据你的特质准备了 8 条针对性破解建议。解锁后开启深度对话模式。</p>
             <div onclick="processPayment()" class="cursor-pointer bg-slate-900 text-white rounded-2xl p-6 mb-4 active:scale-95 transition-all">
                 <div class="text-2xl font-black mb-1">RM 9.90</div>
-                <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">镜子对话 · 深度场</div>
+                <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">镜子对话 · 深度对话</div>
             </div>
             <p class="text-[8px] text-slate-300 mb-6">确认支付即代表你了解并接受 AI 服务的非医疗局限性</p>
             <button onclick="closeModal()" class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">先随便看看</button>
@@ -279,9 +279,9 @@ async function submitDailyAnswer() {
             if (!extData.error && extData.answer) {
                 const deepQuestion = extData.answer;
                 addBubble(`💡 今日延伸话题：${deepQuestion}`, 'ai');
-                const currentList = [...problemSuggestions];
-                currentList.unshift(deepQuestion);
-                updateSuggestions(currentList);
+                 // 将延伸话题添加到建议列表顶部（保留原问题）
+                const updatedList = [deepQuestion, ...problemSuggestions];
+                updateSuggestions(updatedList);
             } else {
                 throw new Error("生成话题失败");
             }
