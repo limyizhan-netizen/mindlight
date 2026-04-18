@@ -26,7 +26,11 @@ export default async function handler(req, res) {
 5. 禁令：严禁使用玄学词汇；严禁给出确定的决策指令；不加结束问句。
 6. 返回JSON格式：{ "answer": "回答内容（约80字）", "questions": ["我...（第一人称卡顿感问题1）", "我...（问题2）", "我...（问题3）"] }`;
 
-    const modelList = ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+    const modelList = [
+        'gemini-2.5-flash',
+        'gemini-2.5-pro',
+        'gemini-2.0-flash'
+    ];
     for (const model of modelList) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         try {
