@@ -135,7 +135,7 @@
                 <div id="chat-display" class="space-y-4 mb-4 max-h-80 overflow-y-auto custom-scrollbar pr-2 min-h-[140px]"></div>
 
                 <div id="suggestion-box" class="mb-4">
-                    <p class="text-[10px] font-bold text-indigo-400/60 mb-3 px-2 uppercase tracking-widest">试试聊聊这些困扰：</p>
+                    <p class="text-[10px] font-bold text-indigo-400/60 mb-3 px-2 uppercase tracking-widest">试试聊聊你的困扰：</p>
                     <div id="suggestion-list" class="flex flex-col gap-2"></div>
                 </div>
 
@@ -202,9 +202,8 @@
         };
         
         const problemSuggestions = [
-            "工作压力非常大，但我不知道该怎么拒绝不合理的任务...",
-            "我总是在讨好别人，感觉快要把真实的自己弄丢了...",
-            "现在面临一个大的转折点，我怕选错了会后悔一辈子..."
+        "工作压力很大，怎么调整？",
+        "总是自我怀疑，怎么办？"
         ];
         
         // ==================== 每日一问 / 情绪打卡 ====================
@@ -280,11 +279,9 @@ async function submitDailyAnswer() {
             if (!extData.error && extData.answer) {
                 const deepQuestion = extData.answer;
                 addBubble(`💡 今日延伸话题：${deepQuestion}`, 'ai');
-                // 将新问题添加到建议列表顶部
-                const currentSuggestions = [...problemSuggestions];
-                currentSuggestions.unshift(deepQuestion);
-                updateSuggestions(currentSuggestions);
-                // 可选：保存到 localStorage 以便刷新后仍显示（略）
+                const currentList = [...problemSuggestions];
+                currentList.unshift(deepQuestion);
+                updateSuggestions(currentList);
             } else {
                 throw new Error("生成话题失败");
             }
@@ -294,7 +291,8 @@ async function submitDailyAnswer() {
             // 降级：使用默认话题
             const fallbackQuestion = "今天的心情对你的选择有什么影响？";
             addBubble(`💡 今日延伸话题：${fallbackQuestion}`, 'ai');
-            const currentSuggestions = [...problemSuggestions];
+            const newList = [deepQuestion, ...problemSuggestions];
+            updateSuggestions(newList);
             currentSuggestions.unshift(fallbackQuestion);
             updateSuggestions(currentSuggestions);
         }
@@ -432,10 +430,9 @@ async function submitDailyAnswer() {
             document.getElementById('res-num').innerText = lifeNum;
             document.getElementById('res-title').innerText = data.title;
             document.getElementById('res-behavior').innerText = `“${data.behavior}”`;
-            
-            const welcomeMsg = `你好。作为编号 ${lifeNum} 的${data.title}，我留意到你${data.behavior.split('，')[1]}。很多时候，我们的天赋也是我们的压力来源。比如，你现在的生活中，有没有哪种情况让你觉得特别“卡顿”？可以是工作中的人际消耗，也可以是感情里的某种死循环。如果你愿意，可以点击下方的建议描述，或者直接跟我说。`;
-            addBubble(welcomeMsg, 'ai');
-            
+
+            addBubble("✨ 你好～可以直接和我聊聊，或先完成今日心情打卡（+1次对话）", 'ai');
+                      
             document.getElementById('poster-num').innerText = lifeNum;
             document.getElementById('poster-title').innerText = data.title;
             document.getElementById('poster-desc').innerText = data.behavior;
