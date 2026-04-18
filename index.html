@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>心光 MindLight - AI 心理认知教练</title>
+    <title>心光 MindLight - 轻量 AI 自我认知工具</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -75,7 +75,7 @@
                 </div>
                 <div>
                     <div style="font-size: 13px; font-weight: bold;">扫码开启你的认知探索</div>
-                    <div style="font-size: 8px; opacity: 0.7;">心光 AI · 心理认知助理</div>
+                    <div style="font-size: 8px; opacity: 0.7;">心光 AI · 轻量 AI 自我认知工具</div>
                 </div>
             </div>
         </div>
@@ -85,7 +85,7 @@
         <!-- Header -->
         <div class="p-8 text-center bg-white border-b border-slate-50">
             <h1 class="text-3xl font-black text-slate-900 tracking-tight">心光 <span class="text-indigo-600">AI</span></h1>
-            <p class="text-slate-400 text-[10px] mt-2 font-bold uppercase tracking-[0.2em]">你的心理认知行为助理</p>
+            <p class="text-slate-400 text-[10px] mt-2 font-bold uppercase tracking-[0.2em]">你的自我认知小助手</p>
         </div>
 
         <!-- Setup View -->
@@ -161,10 +161,10 @@
     <div id="pay-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
         <div class="bg-white rounded-[3rem] p-8 w-full max-w-xs text-center shadow-2xl border border-white/20">
             <h3 class="font-bold text-lg text-slate-800 mb-2">定制方案已生成</h3>
-            <p class="text-[10px] text-slate-400 mb-8 leading-relaxed">教练已根据你的特质准备了 8 条针对性破解建议。解锁后开启深度对话模式。</p>
+            <p class="text-[10px] text-slate-400 mb-8 leading-relaxed">助手已根据你的特质准备了 8 条针对性破解建议。解锁后开启深度对话模式。</p>
             <div onclick="processPayment()" class="cursor-pointer bg-slate-900 text-white rounded-2xl p-6 mb-4 active:scale-95 transition-all">
                 <div class="text-2xl font-black mb-1">RM 9.90</div>
-                <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">开启深度教练服务</div>
+                <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">镜子对话 · 深度场</div>
             </div>
             <p class="text-[8px] text-slate-300 mb-6">确认支付即代表你了解并接受 AI 服务的非医疗局限性</p>
             <button onclick="closeModal()" class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">先随便看看</button>
@@ -563,7 +563,7 @@ async function submitDailyAnswer() {
             setTimeout(async () => { 
                 await addQuota(8);
                 closeModal(); 
-                showToast("✅ 教练包已解锁。"); 
+                showToast("✅ 心光静听模式已解锁。"); 
             }, 1500);
         }
         
